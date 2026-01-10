@@ -47,6 +47,7 @@
     "misspelling": "{{location}} 혹시 p5.js의 {{type}}를 사용하시려면 \"{{name}}\"를 {{actualName}}로 고쳐 보세요.",
     "misspelling_plural": "{{location}} 혹시 p5.js의 {{type}}를 사용하시려면 \"{{name}}\"를 다음 중 하나로 고쳐보세요: \n{{suggestions}}",
     "misusedTopLevel": "{{location}} 혹시 p5.js의 {{symbolType}} 타입 {{symbolName}}을 사용하셨나요? 그렇다면 {{symbolName}}을 작성 중인 setup() 함수의 대괄호 안으로 옮겨보세요.\n\n+ 추가 정보: {{url}}",
+    "preloadDisabled": "p5.js 2.0에서는 preload() 함수가 제거되었습니다. 대신 setup() 함수 안에서 async / await 키워드나 콜백(callback)을 사용하여 에셋을 불러와 주세요. p5.js 2.0과 호환성에 대한 자세한 정보는 https://github.com/processing/p5.js-compatibility 를, Promise와 async / await에 대한 자세한 정보는 https://dev.to/limzykenneth/asynchronous-p5js-20-458f 를 참고하세요.",
     "positions": {
       "p_1": "1번째",
       "p_10": "10번째",
