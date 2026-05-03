@@ -60,7 +60,7 @@ function buildPreviewSrcDoc(sourceCode: string) {
         margin: 0;
         width: 100%;
         height: 100%;
-        overflow: hidden;
+        overflow: auto;
         background: #f7f4ef;
         color: #201814;
         font-family: sans-serif;
@@ -70,12 +70,15 @@ function buildPreviewSrcDoc(sourceCode: string) {
         position: relative;
         width: 100%;
         height: 100%;
-        overflow: hidden;
+        overflow: auto;
       }
 
       #canvas-host {
-        width: 100%;
-        height: 100%;
+        min-width: 100%;
+        min-height: 100%;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
       }
 
       canvas {
@@ -195,7 +198,7 @@ function PreviewPanel({ srcDoc }: PreviewPanelProps) {
       <header className="px-4 py-4">
         <h2 className="m-0 text-base font-medium text-[#ED225D]">Preview</h2>
       </header>
-      <div className="min-h-0 flex-1 overflow-hidden rounded-[4px] border border-black/10">
+      <div className="min-h-0 flex-1 overflow-auto rounded-[4px] border border-black/10">
         <iframe
           title="Sandboxed p5 preview"
           className="h-full w-full border-0 bg-white"
