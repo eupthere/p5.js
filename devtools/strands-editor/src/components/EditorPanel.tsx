@@ -86,8 +86,16 @@ export function EditorPanel({
       return undefined;
     }
 
+    const firstRange = normalizedRanges[0];
     editorView.dispatch({
-      effects: [setHighlightsEffect.of(normalizedRanges)],
+      effects: [
+        setHighlightsEffect.of(normalizedRanges),
+        EditorView.scrollIntoView(firstRange.from, {
+          y: 'nearest',
+          x: 'nearest',
+          yMargin: 48,
+        }),
+      ],
     });
 
     if (clearHighlightTimeoutRef.current !== null) {
