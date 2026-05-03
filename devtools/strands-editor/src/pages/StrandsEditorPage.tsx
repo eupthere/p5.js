@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { injectPreviewBridge } from '../preview/bridge';
 import ParentWindowAdapter from '../preview/parentAdapter';
 import '../styles/app.css';
-import { EditorPanel } from '../components/EditorPanel';
+import {
+  EditorPanel,
+  type EditorHighlightRange,
+} from '../components/EditorPanel';
 import { joinCaptureSections } from '../utils/formatCaptures';
 import {
   SOURCE_INITIAL,
@@ -13,6 +16,7 @@ import { PreviewPanel } from '../components/PreviewPanel';
 import { buildPreviewSrcDoc } from '../preview/srcdoc';
 import type { ShaderCapture } from '../preview/types';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { findChangedRanges } from '../utils/findChangedRanges';
 
 const PREVIEW_DEBOUNCE_MS = 300;
 const PANEL_IDS = ['source', 'preview', 'callback', 'shader'] as const;
@@ -47,6 +51,12 @@ function StrandsEditorPage() {
     callback: '',
     shader: '',
   });
+  const [callbackHighlightRanges, setCallbackHighlightRanges] = useState<
+    EditorHighlightRange[]
+  >([]);
+  const [shaderHighlightRanges, setShaderHighlightRanges] = useState<
+    EditorHighlightRange[]
+  >([]);
   const [captures, setCaptures] = useState<ShaderCapture[]>([]);
   const [visiblePanels, setVisiblePanels] = useState<Record<PanelId, boolean>>(
     () => loadStoredVisiblePanels()
@@ -104,6 +114,8 @@ function StrandsEditorPage() {
     if (captures.length === 0) {
       setInternalCallback(INTERNAL_CALLBACK_INITIAL);
       setShaderCode(SHADER_INITIAL);
+      setCallbackHighlightRanges([]);
+      setShaderHighlightRanges([]);
       return;
     }
 
@@ -118,10 +130,22 @@ function StrandsEditorPage() {
 
     setInternalCallback(nextInternalCallback);
     setShaderCode(nextShaderCode);
-    setCapturedOutput((currentOutput) => ({
-      callback: hasCallbackOutput ? nextInternalCallback : currentOutput.callback,
-      shader: hasShaderOutput ? nextShaderCode : currentOutput.shader,
-    }));
+    setCapturedOutput((currentOutput) => {
+      const nextCallbackHighlightRanges = hasCallbackOutput
+        ? findChangedRanges(currentOutput.callback, nextInternalCallback)
+        : [];
+      const nextShaderHighlightRanges = hasShaderOutput
+        ? findChangedRanges(currentOutput.shader, nextShaderCode)
+        : [];
+
+      setCallbackHighlightRanges(nextCallbackHighlightRanges);
+      setShaderHighlightRanges(nextShaderHighlightRanges);
+
+      return {
+        callback: hasCallbackOutput ? nextInternalCallback : currentOutput.callback,
+        shader: hasShaderOutput ? nextShaderCode : currentOutput.shader,
+      };
+    });
   }, [captures]);
 
   useEffect(() => {
@@ -190,7 +214,7 @@ function StrandsEditorPage() {
           value={internalCallback}
           onChange={setInternalCallback}
           readOnly
-          highlightRanges={[{ from: 0, to: 30 }]}
+          highlightRanges={callbackHighlightRanges}
         />
         <EditorPanel
           isHidden={!visiblePanels.shader}
@@ -199,6 +223,7 @@ function StrandsEditorPage() {
           onChange={setShaderCode}
           readOnly
           languageSupport={false}
+          highlightRanges={shaderHighlightRanges}
         />
       </section>
     </main>
