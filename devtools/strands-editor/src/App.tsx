@@ -109,6 +109,7 @@ function App() {
           value={shaderCode}
           onChange={setShaderCode}
           readOnly
+          languageSupport={false}
         />
       </section>
     </main>

@@ -6,6 +6,7 @@ type EditorPanelProps = {
   value: string;
   onChange: (value: string) => void;
   readOnly?: boolean;
+  languageSupport?: boolean;
 };
 
 export function EditorPanel({
@@ -13,6 +14,7 @@ export function EditorPanel({
   value,
   onChange,
   readOnly = false,
+  languageSupport = true,
 }: EditorPanelProps) {
   return (
     <article className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -26,7 +28,7 @@ export function EditorPanel({
           className="h-full"
           value={value}
           height="100%"
-          extensions={[javascript()]}
+          extensions={languageSupport ? [javascript()] : []}
           onChange={onChange}
           basicSetup={{
             lineNumbers: true,

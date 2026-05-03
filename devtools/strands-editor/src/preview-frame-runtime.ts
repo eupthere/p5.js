@@ -10,6 +10,7 @@ import {
   type ShaderCapture,
   type ShaderCaptureKind,
 } from './preview-types';
+import { formatSourceCode } from './format-source';
 
 declare global {
   interface Window {
@@ -54,15 +55,47 @@ window.addEventListener('unhandledrejection', (event) => {
 
 const OriginalFunction = globalThis.Function;
 
+async function formatCallbackBody(callbackBody: string) {
+  const wrapperPrefix = 'function __strands_callback(__p5, scope) {';
+  const wrappedSource = `${wrapperPrefix}\n${callbackBody}\n}`;
+  const formattedSource = await formatSourceCode(wrappedSource);
+  const bodyStart = formattedSource.indexOf(wrapperPrefix);
+  if (bodyStart === -1) {
+    return callbackBody;
+  }
+
+  const contentStart = bodyStart + wrapperPrefix.length;
+  const contentEnd = formattedSource.lastIndexOf('}');
+  if (contentEnd === -1 || contentEnd <= contentStart) {
+    return callbackBody;
+  }
+
+  return formattedSource
+    .slice(contentStart, contentEnd)
+    .replace(/^\n/, '')
+    .replace(/\n\s*$/, '');
+}
+
 function WrappedFunction(...args: unknown[]) {
   if (
     activeCaptureId &&
     args[0] === '__p5' &&
     typeof args.at(-1) === 'string'
   ) {
-    updateCapture(activeCaptureId, {
-      callbackBody: String(args.at(-1)),
-    });
+    const captureId = activeCaptureId;
+    const callbackBody = String(args.at(-1));
+
+    void formatCallbackBody(callbackBody)
+      .then((formattedCallbackBody) => {
+        updateCapture(captureId, {
+          callbackBody: formattedCallbackBody,
+        });
+      })
+      .catch(() => {
+        updateCapture(captureId, {
+          callbackBody,
+        });
+      });
   }
 
   return OriginalFunction(...(args as string[]));
