@@ -104,8 +104,8 @@ function App() {
   };
 
   return (
-    <main className="h-screen overflow-hidden px-4 py-5 bg-white text-black sm:px-5 lg:px-7">
-      <header className="mx-auto mb-6 flex max-w-[1800px] flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+    <main className="flex h-screen min-h-0 flex-col overflow-hidden bg-white px-4 py-5 text-black sm:px-5 lg:px-7">
+      <header className="mx-auto mb-6 flex w-full max-w-[1800px] flex-none flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="m-0 text-[clamp(1rem,4vw,2rem)] leading-[0.95] font-medium tracking-[-0.03em] text-[#ED225D]">
             Strands Editor
@@ -133,7 +133,7 @@ function App() {
         </div>
       </header>
 
-      <section className="mx-auto flex h-[calc(100vh-8.5rem)] max-h-[calc(100vh-8.5rem)] max-w-[1800px] flex-col items-stretch gap-5 overflow-hidden lg:h-[calc(100vh-10rem)] lg:max-h-[calc(100vh-10rem)] lg:flex-row">
+      <section className="mx-auto flex min-h-0 w-full max-w-[1800px] flex-1 flex-col items-stretch gap-0 overflow-hidden lg:flex-row">
         <EditorPanel
           isHidden={!visiblePanels.source}
           title="Sketch"
