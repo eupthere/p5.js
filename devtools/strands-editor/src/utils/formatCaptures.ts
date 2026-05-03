@@ -1,4 +1,4 @@
-import type { ShaderCapture } from './preview-types';
+import type { ShaderCapture } from '../preview/types';
 
 export function joinCaptureSections(
   captures: ShaderCapture[],

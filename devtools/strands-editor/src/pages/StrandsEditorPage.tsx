@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { injectPreviewBridge } from './preview-bridge';
-import ParentWindowAdapter from './preview-parent-adapter';
-import './App.css';
-import { EditorPanel } from './EditorPanel';
-import { joinCaptureSections } from './format-captures';
+import { injectPreviewBridge } from '../preview/bridge';
+import ParentWindowAdapter from '../preview/parentAdapter';
+import '../styles/app.css';
+import { EditorPanel } from '../components/EditorPanel';
+import { joinCaptureSections } from '../utils/formatCaptures';
 import {
   SOURCE_INITIAL,
   INTERNAL_CALLBACK_INITIAL,
   SHADER_INITIAL,
-} from './initial-code';
-import { PreviewPanel } from './PreviewPanel';
-import { buildPreviewSrcDoc } from './preview-srcdoc';
-import type { ShaderCapture } from './preview-types';
-import { useDebouncedValue } from './use-debounced-value';
+} from '../data/initialCode';
+import { PreviewPanel } from '../components/PreviewPanel';
+import { buildPreviewSrcDoc } from '../preview/srcdoc';
+import type { ShaderCapture } from '../preview/types';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 
 const PREVIEW_DEBOUNCE_MS = 300;
 const PANEL_IDS = ['source', 'preview', 'callback', 'shader'] as const;
@@ -34,7 +34,7 @@ const DEFAULT_VISIBLE_PANELS: Record<PanelId, boolean> = {
   shader: true,
 };
 
-function App() {
+function StrandsEditorPage() {
   const [sourceCode, setSourceCode] = useState(() => loadStoredSourceCode());
   const [internalCallback, setInternalCallback] = useState(INTERNAL_CALLBACK_INITIAL);
   const [shaderCode, setShaderCode] = useState(SHADER_INITIAL);
@@ -209,4 +209,4 @@ function loadStoredVisiblePanels(): Record<PanelId, boolean> {
   }
 }
 
-export default App;
+export default StrandsEditorPage;
