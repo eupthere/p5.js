@@ -1,0 +1,69 @@
+export function buildPreviewSrcDoc(sourceCode: string) {
+  const escapedSource = sourceCode.replaceAll('</script>', '<\\/script>');
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background: #f7f4ef;
+        color: #201814;
+        font-family: sans-serif;
+      }
+
+      main {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+      }
+
+      #canvas-host {
+        min-width: 100%;
+        min-height: 100%;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+      }
+
+      canvas {
+        display: block;
+      }
+
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+      }
+
+      #error {
+        position: absolute;
+        inset: 0;
+        overflow: auto;
+        padding: 12px;
+        background: #fff4f4;
+        color: #9f1239;
+        border-left: 4px solid #e11d48;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div id="canvas-host"></div>
+      <div id="error"></div>
+    </main>
+    <script src="/p5.js"></script>
+    <script src="/p5.webgpu.js"></script>
+    <script>
+      window.__STRANDS_SOURCE__ = ${JSON.stringify(escapedSource)};
+    </script>
+    <script type="module" src="/src/preview-frame-runtime.ts"></script>
+  </body>
+</html>`;
+}

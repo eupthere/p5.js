@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import CodeMirror from '@uiw/react-codemirror';
-import { javascript } from '@codemirror/lang-javascript';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { injectPreviewBridge } from './preview-bridge';
 import ParentWindowAdapter from './preview-parent-adapter';
 import './App.css';
+import { EditorPanel } from './EditorPanel';
+import { joinCaptureSections } from './format-captures';
 import {
   SOURCE_INITIAL,
   INTERNAL_CALLBACK_INITIAL,
   SHADER_INITIAL,
 } from './initial-code';
+import { PreviewPanel } from './PreviewPanel';
+import { buildPreviewSrcDoc } from './preview-srcdoc';
 import type { ShaderCapture } from './preview-types';
+import { useDebouncedValue } from './use-debounced-value';
 
 const PREVIEW_DEBOUNCE_MS = 300;
 
@@ -55,11 +58,11 @@ function App() {
     };
 
     const handleLoad = () => {
-      void connect();
+      connect();
     };
 
     iframe.addEventListener('load', handleLoad);
-    void connect();
+    connect();
 
     return () => {
       cancelled = true;
@@ -109,176 +112,6 @@ function App() {
         />
       </section>
     </main>
-  );
-}
-
-function useDebouncedValue<T>(value: T, delayMs: number) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setDebouncedValue(value);
-    }, delayMs);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [delayMs, value]);
-
-  return debouncedValue;
-}
-
-function joinCaptureSections(
-  captures: ShaderCapture[],
-  field: 'callbackBody' | 'shaderSource'
-) {
-  return captures
-    .map((capture) => {
-      const content = capture[field]?.trim();
-      if (!content) {
-        return `// ${capture.kind}: ${capture.name}\n// No output captured yet.`;
-      }
-
-      return [
-        `// ${capture.kind}: ${capture.name}`,
-        '// -----------------------------------------------------------------------------',
-        content,
-      ].join('\n');
-    })
-    .join('\n\n// =============================================================================\n\n');
-}
-
-function buildPreviewSrcDoc(sourceCode: string) {
-  const escapedSource = sourceCode.replaceAll('</script>', '<\\/script>');
-
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>
-      html, body {
-        margin: 0;
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-        background: #f7f4ef;
-        color: #201814;
-        font-family: sans-serif;
-      }
-
-      main {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-      }
-
-      #canvas-host {
-        min-width: 100%;
-        min-height: 100%;
-        display: flex;
-        align-items: flex-start;
-        justify-content: flex-start;
-      }
-
-      canvas {
-        display: block;
-      }
-
-      pre {
-        margin: 0;
-        white-space: pre-wrap;
-      }
-
-      #error {
-        position: absolute;
-        inset: 0;
-        overflow: auto;
-        padding: 12px;
-        background: #fff4f4;
-        color: #9f1239;
-        border-left: 4px solid #e11d48;
-        display: none;
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <div id="canvas-host"></div>
-      <div id="error"></div>
-    </main>
-    <script src="/p5.js"></script>
-    <script src="/p5.webgpu.js"></script>
-    <script>
-      window.__STRANDS_SOURCE__ = ${JSON.stringify(escapedSource)};
-    </script>
-    <script type="module" src="/src/preview-frame-runtime.ts"></script>
-  </body>
-</html>`;
-}
-
-type EditorPanelProps = {
-  title: string
-  value: string
-  onChange: (value: string) => void
-  readOnly?: boolean
-}
-
-function EditorPanel({
-  title,
-  value,
-  onChange,
-  readOnly = false,
-}: EditorPanelProps) {
-  return (
-    <article className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <header className="px-4 py-4">
-        <div className="min-w-0">
-          <h2 className="m-0 text-base font-medium text-[#ED225D]">{title}</h2>
-        </div>
-      </header>
-      <div className="rounded-[4px] editor-body min-h-0 flex-1 overflow-hidden">
-        <CodeMirror
-          className="h-full"
-          value={value}
-          height="100%"
-          extensions={[javascript()]}
-          onChange={onChange}
-          basicSetup={{
-            lineNumbers: true,
-            foldGutter: false,
-            highlightActiveLine: false,
-          }}
-          editable={!readOnly}
-          theme="none"
-        />
-      </div>
-    </article>
-  );
-}
-
-type PreviewPanelProps = {
-  iframeRef: RefObject<HTMLIFrameElement | null>
-  srcDoc: string
-}
-
-function PreviewPanel({ iframeRef, srcDoc }: PreviewPanelProps) {
-  return (
-    <article className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <header className="px-4 py-4">
-        <h2 className="m-0 text-base font-medium text-[#ED225D]">Preview</h2>
-      </header>
-      <div className="min-h-0 flex-1 overflow-auto rounded-[4px] border border-black/10">
-        <iframe
-          ref={iframeRef}
-          title="Sandboxed p5 preview"
-          className="h-full w-full border-0 bg-white"
-          sandbox="allow-scripts allow-same-origin"
-          srcDoc={srcDoc}
-        />
-      </div>
-    </article>
   );
 }
 
