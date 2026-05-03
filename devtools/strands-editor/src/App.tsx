@@ -15,12 +15,27 @@ import type { ShaderCapture } from './preview-types';
 import { useDebouncedValue } from './use-debounced-value';
 
 const PREVIEW_DEBOUNCE_MS = 300;
+const PANEL_IDS = ['source', 'preview', 'callback', 'shader'] as const;
+type PanelId = (typeof PANEL_IDS)[number];
+
+const PANEL_LABELS: Record<PanelId, string> = {
+  source: 'Source',
+  preview: 'Preview',
+  callback: 'Internal Callback',
+  shader: 'Shader',
+};
 
 function App() {
   const [sourceCode, setSourceCode] = useState(SOURCE_INITIAL);
   const [internalCallback, setInternalCallback] = useState(INTERNAL_CALLBACK_INITIAL);
   const [shaderCode, setShaderCode] = useState(SHADER_INITIAL);
   const [captures, setCaptures] = useState<ShaderCapture[]>([]);
+  const [visiblePanels, setVisiblePanels] = useState<Record<PanelId, boolean>>({
+    source: true,
+    preview: true,
+    callback: true,
+    shader: true,
+  });
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const debouncedSourceCode = useDebouncedValue(sourceCode, PREVIEW_DEBOUNCE_MS);
 
@@ -81,6 +96,13 @@ function App() {
     setShaderCode(joinCaptureSections(captures, 'shaderSource'));
   }, [captures]);
 
+  const togglePanel = (panelId: PanelId) => {
+    setVisiblePanels((currentPanels) => ({
+      ...currentPanels,
+      [panelId]: !currentPanels[panelId],
+    }));
+  };
+
   return (
     <main className="h-screen overflow-hidden px-4 py-5 bg-white text-black sm:px-5 lg:px-7">
       <header className="mx-auto mb-6 flex max-w-[1800px] flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -89,22 +111,49 @@ function App() {
             Strands Editor
           </h1>
         </div>
+        <div className="flex flex-wrap gap-2">
+          {PANEL_IDS.map((panelId) => {
+            const isVisible = visiblePanels[panelId];
+
+            return (
+              <button
+                key={panelId}
+                type="button"
+                className={`rounded border px-3 py-1 text-sm transition ${
+                  isVisible
+                    ? 'border-[#ED225D] bg-[#ED225D] text-white'
+                    : 'border-black/10 bg-white text-black'
+                }`}
+                onClick={() => togglePanel(panelId)}
+              >
+                {PANEL_LABELS[panelId]}
+              </button>
+            );
+          })}
+        </div>
       </header>
 
       <section className="mx-auto flex h-[calc(100vh-8.5rem)] max-h-[calc(100vh-8.5rem)] max-w-[1800px] flex-col items-stretch gap-5 overflow-hidden lg:h-[calc(100vh-10rem)] lg:max-h-[calc(100vh-10rem)] lg:flex-row">
         <EditorPanel
+          isHidden={!visiblePanels.source}
           title="Sketch"
           value={sourceCode}
           onChange={setSourceCode}
         />
-        <PreviewPanel iframeRef={iframeRef} srcDoc={previewSrcDoc} />
+        <PreviewPanel
+          isHidden={!visiblePanels.preview}
+          iframeRef={iframeRef}
+          srcDoc={previewSrcDoc}
+        />
         <EditorPanel
+          isHidden={!visiblePanels.callback}
           title="Internal Strands Callback"
           value={internalCallback}
           onChange={setInternalCallback}
           readOnly
         />
         <EditorPanel
+          isHidden={!visiblePanels.shader}
           title="Shader"
           value={shaderCode}
           onChange={setShaderCode}

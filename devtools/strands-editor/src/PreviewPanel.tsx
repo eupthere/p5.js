@@ -1,13 +1,14 @@
 import type { RefObject } from 'react';
 
 type PreviewPanelProps = {
+  isHidden?: boolean;
   iframeRef: RefObject<HTMLIFrameElement | null>;
   srcDoc: string;
 };
 
-export function PreviewPanel({ iframeRef, srcDoc }: PreviewPanelProps) {
+export function PreviewPanel({ isHidden = false, iframeRef, srcDoc }: PreviewPanelProps) {
   return (
-    <article className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <article className={`flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${isHidden ? 'hidden' : ''}`}>
       <header className="px-4 py-4">
         <h2 className="m-0 text-base font-medium text-[#ED225D]">Preview</h2>
       </header>
