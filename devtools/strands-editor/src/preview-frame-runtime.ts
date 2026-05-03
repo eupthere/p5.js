@@ -1,9 +1,15 @@
 import {
   previewBridgeService,
   providePreviewBridge,
-  type ShaderCapture,
 } from './preview-bridge';
 import PreviewFrameAdapter from './preview-frame-adapter';
+import {
+  SHADER_CAPTURE_KINDS,
+  getShaderBuilderMethodName,
+  type ShaderBuilderMethodName,
+  type ShaderCapture,
+  type ShaderCaptureKind,
+} from './preview-types';
 
 declare global {
   interface Window {
@@ -35,7 +41,7 @@ function showError(error: unknown) {
     errorNode.style.display = 'block';
     errorNode.innerHTML = `<pre>${message}</pre>`;
   }
-  void service.update({ error: message });
+  service.update({ error: message });
 }
 
 window.addEventListener('error', (event) => {
@@ -66,7 +72,7 @@ WrappedFunction.prototype = OriginalFunction.prototype;
 Object.setPrototypeOf(WrappedFunction, OriginalFunction);
 globalThis.Function = WrappedFunction as FunctionConstructor;
 
-function createCapture(kind: ShaderCapture['kind'], name: string) {
+function createCapture(kind: ShaderCaptureKind, name: string) {
   const capture: ShaderCapture = {
     id: `${kind}-${captureSequence++}`,
     kind,
@@ -75,7 +81,7 @@ function createCapture(kind: ShaderCapture['kind'], name: string) {
     shaderSource: '',
   };
 
-  void service.upsertCapture(capture);
+  service.upsertCapture(capture);
   capturesById.set(capture.id, capture);
   activeCaptureId = capture.id;
   return capture.id;
@@ -90,7 +96,7 @@ function updateCapture(captureId: string, partial: Partial<ShaderCapture>) {
     ...partial,
   };
   capturesById.set(captureId, nextCapture);
-  void service.upsertCapture(nextCapture);
+  service.upsertCapture(nextCapture);
 }
 
 function captureShaderSource(captureId: string, shader: any) {
@@ -123,19 +129,11 @@ function patchShaderBuilders() {
   const p5Ctor = window.p5;
   if (!p5Ctor) return;
 
-  const methodConfigs = [
-    { methodName: 'buildComputeShader', kind: 'compute' as const },
-    { methodName: 'buildFilterShader', kind: 'filter' as const },
-    { methodName: 'buildMaterialShader', kind: 'material' as const },
-    { methodName: 'buildNormalShader', kind: 'normal' as const },
-    { methodName: 'buildColorShader', kind: 'color' as const },
-    { methodName: 'buildStrokeShader', kind: 'stroke' as const },
-  ];
-  for (const { methodName, kind } of methodConfigs) {
+  for (const kind of SHADER_CAPTURE_KINDS) {
+    const methodName: ShaderBuilderMethodName = getShaderBuilderMethodName(kind);
     const original = (p5Ctor as any).prototype?.[methodName];
     if (typeof original !== 'function') continue;
-
-    ;(p5Ctor as any).prototype[methodName] = function patchedShaderBuilder(...args: unknown[]) {
+    (p5Ctor as any).prototype[methodName] = function (...args: unknown[]) {
       const callback = args[0];
       const captureId = createCapture(
         kind,

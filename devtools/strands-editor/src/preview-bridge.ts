@@ -1,17 +1,5 @@
 import { defineProxy } from 'comctx';
-
-export type ShaderCapture = {
-  id: string;
-  kind: 'compute' | 'filter' | 'material' | 'normal' | 'color' | 'stroke';
-  name: string;
-  callbackBody: string;
-  shaderSource: string;
-};
-
-export type PreviewState = {
-  captures: ShaderCapture[];
-  error: string;
-};
+import type { PreviewState, ShaderCapture } from './preview-types';
 
 export class PreviewBridgeService {
   private state: PreviewState = {

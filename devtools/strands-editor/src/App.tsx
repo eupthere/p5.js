@@ -9,7 +9,7 @@ import {
   INTERNAL_CALLBACK_INITIAL,
   SHADER_INITIAL,
 } from './initial-code';
-import type { ShaderCapture } from './preview-bridge';
+import type { ShaderCapture } from './preview-types';
 
 const PREVIEW_DEBOUNCE_MS = 300;
 
