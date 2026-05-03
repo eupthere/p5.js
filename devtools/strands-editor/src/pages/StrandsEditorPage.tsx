@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { injectPreviewBridge } from '../preview/bridge';
-import ParentWindowAdapter from '../preview/parentAdapter';
+import { injectPreviewBridge } from '../runtime/bridge';
+import ParentWindowAdapter from '../runtime/parentAdapter';
 import '../styles/app.css';
 import {
   EditorPanel,
@@ -13,8 +13,8 @@ import {
   SHADER_INITIAL,
 } from '../data/initialCode';
 import { PreviewPanel } from '../components/PreviewPanel';
-import { buildPreviewSrcDoc } from '../preview/srcdoc';
-import type { ShaderCapture } from '../preview/types';
+import { buildPreviewSrcDoc } from '../runtime/srcdoc';
+import type { ShaderCapture } from '../runtime/types';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { findChangedRanges } from '../utils/findChangedRanges';
 
