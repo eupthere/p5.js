@@ -11,14 +11,20 @@ import {
 } from './initial-code'
 import type { ShaderCapture } from './preview-bridge'
 
+const PREVIEW_DEBOUNCE_MS = 300
+
 function App() {
   const [sourceCode, setSourceCode] = useState(SOURCE_INITIAL)
   const [internalCallback, setInternalCallback] = useState(INTERNAL_CALLBACK_INITIAL)
   const [shaderCode, setShaderCode] = useState(SHADER_INITIAL)
   const [captures, setCaptures] = useState<ShaderCapture[]>([])
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
+  const debouncedSourceCode = useDebouncedValue(sourceCode, PREVIEW_DEBOUNCE_MS)
 
-  const previewSrcDoc = useMemo(() => buildPreviewSrcDoc(sourceCode), [sourceCode])
+  const previewSrcDoc = useMemo(
+    () => buildPreviewSrcDoc(debouncedSourceCode),
+    [debouncedSourceCode]
+  )
 
   useEffect(() => {
     const iframe = iframeRef.current
@@ -104,6 +110,22 @@ function App() {
       </section>
     </main>
   )
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedValue(value)
+    }, delayMs)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [delayMs, value])
+
+  return debouncedValue
 }
 
 function joinCaptureSections(
