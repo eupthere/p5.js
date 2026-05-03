@@ -27,6 +27,11 @@ const PANEL_LABELS: Record<PanelId, string> = {
   shader: 'Shader',
 };
 
+type CapturedOutput = {
+  callback: string;
+  shader: string;
+};
+
 const DEFAULT_VISIBLE_PANELS: Record<PanelId, boolean> = {
   source: true,
   preview: true,
@@ -38,6 +43,10 @@ function StrandsEditorPage() {
   const [sourceCode, setSourceCode] = useState(() => loadStoredSourceCode());
   const [internalCallback, setInternalCallback] = useState(INTERNAL_CALLBACK_INITIAL);
   const [shaderCode, setShaderCode] = useState(SHADER_INITIAL);
+  const [, setCapturedOutput] = useState<CapturedOutput>({
+    callback: '',
+    shader: '',
+  });
   const [captures, setCaptures] = useState<ShaderCapture[]>([]);
   const [visiblePanels, setVisiblePanels] = useState<Record<PanelId, boolean>>(
     () => loadStoredVisiblePanels()
@@ -98,8 +107,21 @@ function StrandsEditorPage() {
       return;
     }
 
-    setInternalCallback(joinCaptureSections(captures, 'callbackBody'));
-    setShaderCode(joinCaptureSections(captures, 'shaderSource'));
+    const nextInternalCallback = joinCaptureSections(captures, 'callbackBody');
+    const nextShaderCode = joinCaptureSections(captures, 'shaderSource');
+    const hasCallbackOutput = captures.some(
+      (capture) => capture.callbackBody.trim() !== ''
+    );
+    const hasShaderOutput = captures.some(
+      (capture) => capture.shaderSource.trim() !== ''
+    );
+
+    setInternalCallback(nextInternalCallback);
+    setShaderCode(nextShaderCode);
+    setCapturedOutput((currentOutput) => ({
+      callback: hasCallbackOutput ? nextInternalCallback : currentOutput.callback,
+      shader: hasShaderOutput ? nextShaderCode : currentOutput.shader,
+    }));
   }, [captures]);
 
   useEffect(() => {
@@ -168,6 +190,7 @@ function StrandsEditorPage() {
           value={internalCallback}
           onChange={setInternalCallback}
           readOnly
+          highlightRanges={[{ from: 0, to: 30 }]}
         />
         <EditorPanel
           isHidden={!visiblePanels.shader}
