@@ -1,7 +1,10 @@
 import type { Adapter, OnMessage, SendMessage } from 'comctx'
 
 export default class ParentWindowAdapter implements Adapter {
-  constructor(private readonly targetWindow: Window) {}
+  private readonly targetWindow: Window;
+  constructor(targetWindow: Window) {
+    this.targetWindow = targetWindow
+  }
 
   sendMessage: SendMessage = (message, transfer) => {
     this.targetWindow.postMessage(message, '*', transfer)
