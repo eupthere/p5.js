@@ -17,6 +17,8 @@ import { useDebouncedValue } from './use-debounced-value';
 const PREVIEW_DEBOUNCE_MS = 300;
 const PANEL_IDS = ['source', 'preview', 'callback', 'shader'] as const;
 type PanelId = (typeof PANEL_IDS)[number];
+const SOURCE_STORAGE_KEY = 'strands-editor:source-code';
+const PANEL_VISIBILITY_STORAGE_KEY = 'strands-editor:panel-visibility';
 
 const PANEL_LABELS: Record<PanelId, string> = {
   source: 'Source',
@@ -25,17 +27,21 @@ const PANEL_LABELS: Record<PanelId, string> = {
   shader: 'Shader',
 };
 
+const DEFAULT_VISIBLE_PANELS: Record<PanelId, boolean> = {
+  source: true,
+  preview: true,
+  callback: true,
+  shader: true,
+};
+
 function App() {
-  const [sourceCode, setSourceCode] = useState(SOURCE_INITIAL);
+  const [sourceCode, setSourceCode] = useState(() => loadStoredSourceCode());
   const [internalCallback, setInternalCallback] = useState(INTERNAL_CALLBACK_INITIAL);
   const [shaderCode, setShaderCode] = useState(SHADER_INITIAL);
   const [captures, setCaptures] = useState<ShaderCapture[]>([]);
-  const [visiblePanels, setVisiblePanels] = useState<Record<PanelId, boolean>>({
-    source: true,
-    preview: true,
-    callback: true,
-    shader: true,
-  });
+  const [visiblePanels, setVisiblePanels] = useState<Record<PanelId, boolean>>(
+    () => loadStoredVisiblePanels()
+  );
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const debouncedSourceCode = useDebouncedValue(sourceCode, PREVIEW_DEBOUNCE_MS);
 
@@ -95,6 +101,17 @@ function App() {
     setInternalCallback(joinCaptureSections(captures, 'callbackBody'));
     setShaderCode(joinCaptureSections(captures, 'shaderSource'));
   }, [captures]);
+
+  useEffect(() => {
+    window.localStorage.setItem(SOURCE_STORAGE_KEY, sourceCode);
+  }, [sourceCode]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      PANEL_VISIBILITY_STORAGE_KEY,
+      JSON.stringify(visiblePanels)
+    );
+  }, [visiblePanels]);
 
   const togglePanel = (panelId: PanelId) => {
     setVisiblePanels((currentPanels) => ({
@@ -163,6 +180,33 @@ function App() {
       </section>
     </main>
   );
+}
+
+function loadStoredSourceCode() {
+  const storedSourceCode = window.localStorage.getItem(SOURCE_STORAGE_KEY);
+  return storedSourceCode ?? SOURCE_INITIAL;
+}
+
+function loadStoredVisiblePanels(): Record<PanelId, boolean> {
+  const storedVisiblePanels = window.localStorage.getItem(PANEL_VISIBILITY_STORAGE_KEY);
+  if (!storedVisiblePanels) {
+    return DEFAULT_VISIBLE_PANELS;
+  }
+
+  try {
+    const parsedVisiblePanels = JSON.parse(storedVisiblePanels) as Partial<
+      Record<PanelId, boolean>
+    >;
+
+    return {
+      source: parsedVisiblePanels.source ?? DEFAULT_VISIBLE_PANELS.source,
+      preview: parsedVisiblePanels.preview ?? DEFAULT_VISIBLE_PANELS.preview,
+      callback: parsedVisiblePanels.callback ?? DEFAULT_VISIBLE_PANELS.callback,
+      shader: parsedVisiblePanels.shader ?? DEFAULT_VISIBLE_PANELS.shader,
+    };
+  } catch {
+    return DEFAULT_VISIBLE_PANELS;
+  }
 }
 
 export default App;
