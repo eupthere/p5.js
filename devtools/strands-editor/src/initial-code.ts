@@ -78,18 +78,7 @@ function draw() {
 }`
 
 export const INTERNAL_CALLBACK_INITIAL = 
-`function (__p5, scope) {
-  const tint = uniformFloat(() => 0.65);
-
-  getPixelInputs((inputs) => {
-    inputs.color = [inputs.texCoord.x, inputs.texCoord.y, tint, 1.0];
-    return inputs;
-  });
-}`
+``
 
 export const SHADER_INITIAL = 
-`vec4 getFinalColor(vec4 color, vec2 texCoord) {
-  color.rgb = vec3(texCoord.xy, 0.65);
-  color.a = 1.0;
-  return color;
-}`
+``
