@@ -1,4 +1,8 @@
-import { previewBridgeService, providePreviewBridge } from './preview-bridge'
+import {
+  previewBridgeService,
+  providePreviewBridge,
+  type ShaderCapture,
+} from './preview-bridge'
 import PreviewFrameAdapter from './preview-frame-adapter'
 
 declare global {
@@ -21,6 +25,9 @@ providePreviewBridge(new PreviewFrameAdapter())
 const errorNode = document.getElementById('error')
 const canvasHost = document.getElementById('canvas-host')
 const sourceCode = window.__STRANDS_SOURCE__ ?? ''
+let captureSequence = 0
+let activeCaptureId: string | null = null
+const capturesById = new Map<string, ShaderCapture>()
 
 function showError(error: unknown) {
   const message = String(error && typeof error === 'object' && 'stack' in error ? error.stack : error)
@@ -42,9 +49,13 @@ window.addEventListener('unhandledrejection', (event) => {
 const OriginalFunction = globalThis.Function
 
 function WrappedFunction(...args: unknown[]) {
-  if (args[0] === '__p5' && typeof args.at(-1) === 'string') {
-    service.update({
-      internalCallback: String(args.at(-1)),
+  if (
+    activeCaptureId &&
+    args[0] === '__p5' &&
+    typeof args.at(-1) === 'string'
+  ) {
+    updateCapture(activeCaptureId, {
+      callbackBody: String(args.at(-1)),
     })
   }
 
@@ -55,24 +66,53 @@ WrappedFunction.prototype = OriginalFunction.prototype
 Object.setPrototypeOf(WrappedFunction, OriginalFunction)
 globalThis.Function = WrappedFunction as FunctionConstructor
 
-function captureShaderSource(shader: any) {
+function createCapture(kind: ShaderCapture['kind'], name: string) {
+  const capture: ShaderCapture = {
+    id: `${kind}-${captureSequence++}`,
+    kind,
+    name,
+    callbackBody: '',
+    shaderSource: '',
+  }
+
+  service.upsertCapture(capture)
+  capturesById.set(capture.id, capture)
+  activeCaptureId = capture.id
+  return capture.id
+}
+
+function updateCapture(captureId: string, partial: Partial<ShaderCapture>) {
+  const current = capturesById.get(captureId)
+  if (!current) return
+
+  const nextCapture = {
+    ...current,
+    ...partial,
+  }
+  capturesById.set(captureId, nextCapture)
+  service.upsertCapture(nextCapture)
+}
+
+function captureShaderSource(captureId: string, shader: any) {
   queueMicrotask(() => {
     try {
-      if (shader?.computeSrc) {
-        service.update({ shaderSource: shader.computeSrc() })
+      if (shader?.shaderType === 'compute' && typeof shader?.computeSrc === 'function') {
+        updateCapture(captureId, { shaderSource: shader.computeSrc() ?? '' })
+        activeCaptureId = null
         return
       }
 
       const sections: string[] = []
-      if (shader?.vertSrc) {
+      if (typeof shader?.vertSrc === 'function') {
         sections.push(`// Vertex\n${shader.vertSrc()}`)
       }
-      if (shader?.fragSrc) {
+      if (typeof shader?.fragSrc === 'function') {
         sections.push(`// Fragment\n${shader.fragSrc()}`)
       }
       if (sections.length > 0) {
-        service.update({ shaderSource: sections.join('\n\n') })
+        updateCapture(captureId, { shaderSource: sections.join('\n\n') })
       }
+      activeCaptureId = null
     } catch (error) {
       showError(error)
     }
@@ -83,14 +123,26 @@ function patchShaderBuilders() {
   const p5Ctor = window.p5
   if (!p5Ctor) return
 
-  const methodNames = ['buildComputeShader', 'buildFilterShader']
-  for (const methodName of methodNames) {
+  const methodConfigs = [
+    { methodName: 'buildComputeShader', kind: 'compute' as const },
+    { methodName: 'buildFilterShader', kind: 'filter' as const },
+    { methodName: 'buildMaterialShader', kind: 'material' as const },
+    { methodName: 'buildNormalShader', kind: 'normal' as const },
+    { methodName: 'buildColorShader', kind: 'color' as const },
+    { methodName: 'buildStrokeShader', kind: 'stroke' as const },
+  ]
+  for (const { methodName, kind } of methodConfigs) {
     const original = (p5Ctor as any).prototype?.[methodName]
     if (typeof original !== 'function') continue
 
     ;(p5Ctor as any).prototype[methodName] = function patchedShaderBuilder(...args: unknown[]) {
+      const callback = args[0]
+      const captureId = createCapture(
+        kind,
+        typeof callback === 'function' && callback.name ? callback.name : methodName
+      )
       const shader = original.apply(this, args)
-      captureShaderSource(shader)
+      captureShaderSource(captureId, shader)
       return shader
     }
   }

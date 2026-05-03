@@ -9,11 +9,13 @@ import {
   INTERNAL_CALLBACK_INITIAL,
   SHADER_INITIAL,
 } from './initial-code'
+import type { ShaderCapture } from './preview-bridge'
 
 function App() {
   const [sourceCode, setSourceCode] = useState(SOURCE_INITIAL)
   const [internalCallback, setInternalCallback] = useState(INTERNAL_CALLBACK_INITIAL)
   const [shaderCode, setShaderCode] = useState(SHADER_INITIAL)
+  const [captures, setCaptures] = useState<ShaderCapture[]>([])
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
 
   const previewSrcDoc = useMemo(() => buildPreviewSrcDoc(sourceCode), [sourceCode])
@@ -30,21 +32,15 @@ function App() {
         const bridge = injectPreviewBridge(new ParentWindowAdapter(iframe.contentWindow))
         await bridge.onState((state) => {
           if (cancelled) return
-          if (typeof state.internalCallback === 'string' && state.internalCallback.length > 0) {
-            setInternalCallback(state.internalCallback)
-          }
-          if (typeof state.shaderSource === 'string' && state.shaderSource.length > 0) {
-            setShaderCode(state.shaderSource)
+          if (Array.isArray(state.captures)) {
+            setCaptures(state.captures)
           }
         })
 
         const initialState = await bridge.getState()
         if (!cancelled) {
-          if (typeof initialState.internalCallback === 'string' && initialState.internalCallback.length > 0) {
-            setInternalCallback(initialState.internalCallback)
-          }
-          if (typeof initialState.shaderSource === 'string' && initialState.shaderSource.length > 0) {
-            setShaderCode(initialState.shaderSource)
+          if (Array.isArray(initialState.captures)) {
+            setCaptures(initialState.captures)
           }
         }
       } catch (error) {
@@ -64,6 +60,17 @@ function App() {
       iframe.removeEventListener('load', handleLoad)
     }
   }, [previewSrcDoc])
+
+  useEffect(() => {
+    if (captures.length === 0) {
+      setInternalCallback(INTERNAL_CALLBACK_INITIAL)
+      setShaderCode(SHADER_INITIAL)
+      return
+    }
+
+    setInternalCallback(joinCaptureSections(captures, 'callbackBody'))
+    setShaderCode(joinCaptureSections(captures, 'shaderSource'))
+  }, [captures])
 
   return (
     <main className="h-screen overflow-hidden px-4 py-5 bg-white text-black sm:px-5 lg:px-7">
@@ -97,6 +104,26 @@ function App() {
       </section>
     </main>
   )
+}
+
+function joinCaptureSections(
+  captures: ShaderCapture[],
+  field: 'callbackBody' | 'shaderSource'
+) {
+  return captures
+    .map((capture) => {
+      const content = capture[field]?.trim()
+      if (!content) {
+        return `// ${capture.kind}: ${capture.name}\n// No output captured yet.`
+      }
+
+      return [
+        `// ${capture.kind}: ${capture.name}`,
+        '// -----------------------------------------------------------------------------',
+        content,
+      ].join('\n')
+    })
+    .join('\n\n// =============================================================================\n\n')
 }
 
 function buildPreviewSrcDoc(sourceCode: string) {
@@ -185,7 +212,7 @@ function EditorPanel({
   return (
     <article className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <header className="px-4 py-4">
-        <div>
+        <div className="min-w-0">
           <h2 className="m-0 text-base font-medium text-[#ED225D]">{title}</h2>
         </div>
       </header>

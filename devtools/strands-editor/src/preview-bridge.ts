@@ -1,15 +1,21 @@
 import { defineProxy } from 'comctx'
 
-export type PreviewState = {
-  internalCallback: string
+export type ShaderCapture = {
+  id: string
+  kind: 'compute' | 'filter' | 'material' | 'normal' | 'color' | 'stroke'
+  name: string
+  callbackBody: string
   shaderSource: string
+}
+
+export type PreviewState = {
+  captures: ShaderCapture[]
   error: string
 }
 
 export class PreviewBridgeService {
   private state: PreviewState = {
-    internalCallback: '',
-    shaderSource: '',
+    captures: [],
     error: '',
   }
 
@@ -33,6 +39,16 @@ export class PreviewBridgeService {
     for (const listener of this.listeners) {
       listener(this.state)
     }
+  }
+
+  upsertCapture(capture: ShaderCapture) {
+    const existingIndex = this.state.captures.findIndex((item) => item.id === capture.id)
+    const captures =
+      existingIndex === -1
+        ? [...this.state.captures, capture]
+        : this.state.captures.map((item, index) => (index === existingIndex ? capture : item))
+
+    this.update({ captures })
   }
 }
 
