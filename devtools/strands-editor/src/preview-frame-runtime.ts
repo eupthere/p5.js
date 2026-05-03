@@ -2,8 +2,8 @@ import {
   previewBridgeService,
   providePreviewBridge,
   type ShaderCapture,
-} from './preview-bridge'
-import PreviewFrameAdapter from './preview-frame-adapter'
+} from './preview-bridge';
+import PreviewFrameAdapter from './preview-frame-adapter';
 
 declare global {
   interface Window {
@@ -19,34 +19,34 @@ declare global {
   }
 }
 
-const service = previewBridgeService
-providePreviewBridge(new PreviewFrameAdapter())
+const service = previewBridgeService;
+providePreviewBridge(new PreviewFrameAdapter());
 
-const errorNode = document.getElementById('error')
-const canvasHost = document.getElementById('canvas-host')
-const sourceCode = window.__STRANDS_SOURCE__ ?? ''
-let captureSequence = 0
-let activeCaptureId: string | null = null
-const capturesById = new Map<string, ShaderCapture>()
+const errorNode = document.getElementById('error');
+const canvasHost = document.getElementById('canvas-host');
+const sourceCode = window.__STRANDS_SOURCE__ ?? '';
+let captureSequence = 0;
+let activeCaptureId: string | null = null;
+const capturesById = new Map<string, ShaderCapture>();
 
 function showError(error: unknown) {
-  const message = String(error && typeof error === 'object' && 'stack' in error ? error.stack : error)
+  const message = String(error && typeof error === 'object' && 'stack' in error ? error.stack : error);
   if (errorNode) {
-    errorNode.style.display = 'block'
-    errorNode.innerHTML = `<pre>${message}</pre>`
+    errorNode.style.display = 'block';
+    errorNode.innerHTML = `<pre>${message}</pre>`;
   }
-  service.update({ error: message })
+  void service.update({ error: message });
 }
 
 window.addEventListener('error', (event) => {
-  showError(event.error || event.message)
-})
+  showError(event.error || event.message);
+});
 
 window.addEventListener('unhandledrejection', (event) => {
-  showError(event.reason || 'Unhandled promise rejection')
-})
+  showError(event.reason || 'Unhandled promise rejection');
+});
 
-const OriginalFunction = globalThis.Function
+const OriginalFunction = globalThis.Function;
 
 function WrappedFunction(...args: unknown[]) {
   if (
@@ -56,15 +56,15 @@ function WrappedFunction(...args: unknown[]) {
   ) {
     updateCapture(activeCaptureId, {
       callbackBody: String(args.at(-1)),
-    })
+    });
   }
 
-  return OriginalFunction(...args)
+  return OriginalFunction(...(args as string[]));
 }
 
-WrappedFunction.prototype = OriginalFunction.prototype
-Object.setPrototypeOf(WrappedFunction, OriginalFunction)
-globalThis.Function = WrappedFunction as FunctionConstructor
+WrappedFunction.prototype = OriginalFunction.prototype;
+Object.setPrototypeOf(WrappedFunction, OriginalFunction);
+globalThis.Function = WrappedFunction as FunctionConstructor;
 
 function createCapture(kind: ShaderCapture['kind'], name: string) {
   const capture: ShaderCapture = {
@@ -73,55 +73,55 @@ function createCapture(kind: ShaderCapture['kind'], name: string) {
     name,
     callbackBody: '',
     shaderSource: '',
-  }
+  };
 
-  service.upsertCapture(capture)
-  capturesById.set(capture.id, capture)
-  activeCaptureId = capture.id
-  return capture.id
+  void service.upsertCapture(capture);
+  capturesById.set(capture.id, capture);
+  activeCaptureId = capture.id;
+  return capture.id;
 }
 
 function updateCapture(captureId: string, partial: Partial<ShaderCapture>) {
-  const current = capturesById.get(captureId)
-  if (!current) return
+  const current = capturesById.get(captureId);
+  if (!current) return;
 
   const nextCapture = {
     ...current,
     ...partial,
-  }
-  capturesById.set(captureId, nextCapture)
-  service.upsertCapture(nextCapture)
+  };
+  capturesById.set(captureId, nextCapture);
+  void service.upsertCapture(nextCapture);
 }
 
 function captureShaderSource(captureId: string, shader: any) {
   queueMicrotask(() => {
     try {
       if (shader?.shaderType === 'compute' && typeof shader?.computeSrc === 'function') {
-        updateCapture(captureId, { shaderSource: shader.computeSrc() ?? '' })
-        activeCaptureId = null
-        return
+        updateCapture(captureId, { shaderSource: shader.computeSrc() ?? '' });
+        activeCaptureId = null;
+        return;
       }
 
-      const sections: string[] = []
+      const sections: string[] = [];
       if (typeof shader?.vertSrc === 'function') {
-        sections.push(`// Vertex\n${shader.vertSrc()}`)
+        sections.push(`// Vertex\n${shader.vertSrc()}`);
       }
       if (typeof shader?.fragSrc === 'function') {
-        sections.push(`// Fragment\n${shader.fragSrc()}`)
+        sections.push(`// Fragment\n${shader.fragSrc()}`);
       }
       if (sections.length > 0) {
-        updateCapture(captureId, { shaderSource: sections.join('\n\n') })
+        updateCapture(captureId, { shaderSource: sections.join('\n\n') });
       }
-      activeCaptureId = null
+      activeCaptureId = null;
     } catch (error) {
-      showError(error)
+      showError(error);
     }
-  })
+  });
 }
 
 function patchShaderBuilders() {
-  const p5Ctor = window.p5
-  if (!p5Ctor) return
+  const p5Ctor = window.p5;
+  if (!p5Ctor) return;
 
   const methodConfigs = [
     { methodName: 'buildComputeShader', kind: 'compute' as const },
@@ -130,58 +130,58 @@ function patchShaderBuilders() {
     { methodName: 'buildNormalShader', kind: 'normal' as const },
     { methodName: 'buildColorShader', kind: 'color' as const },
     { methodName: 'buildStrokeShader', kind: 'stroke' as const },
-  ]
+  ];
   for (const { methodName, kind } of methodConfigs) {
-    const original = (p5Ctor as any).prototype?.[methodName]
-    if (typeof original !== 'function') continue
+    const original = (p5Ctor as any).prototype?.[methodName];
+    if (typeof original !== 'function') continue;
 
     ;(p5Ctor as any).prototype[methodName] = function patchedShaderBuilder(...args: unknown[]) {
-      const callback = args[0]
+      const callback = args[0];
       const captureId = createCapture(
         kind,
         typeof callback === 'function' && callback.name ? callback.name : methodName
-      )
-      const shader = original.apply(this, args)
-      captureShaderSource(captureId, shader)
-      return shader
-    }
+      );
+      const shader = original.apply(this, args);
+      captureShaderSource(captureId, shader);
+      return shader;
+    };
   }
 }
 
 function executeSketchAsGlobalScript(source: string) {
-  const script = document.createElement('script')
-  script.textContent = source
-  document.body.appendChild(script)
-  script.remove()
+  const script = document.createElement('script');
+  script.textContent = source;
+  document.body.appendChild(script);
+  script.remove();
 }
 
 function boot() {
-  patchShaderBuilders()
-  executeSketchAsGlobalScript(sourceCode)
+  patchShaderBuilders();
+  executeSketchAsGlobalScript(sourceCode);
 
   const hasGlobalSketch =
     typeof window.setup === 'function' ||
     typeof window.draw === 'function' ||
-    typeof window.preload === 'function'
+    typeof window.preload === 'function';
 
   if (!hasGlobalSketch || !window.p5) {
-    return
+    return;
   }
 
-  const sketchInstance = new window.p5()
+  const sketchInstance = new window.p5();
 
   requestAnimationFrame(() => {
-    if (!canvasHost) return
+    if (!canvasHost) return;
     if (sketchInstance?.canvas) {
-      canvasHost.appendChild(sketchInstance.canvas)
+      canvasHost.appendChild(sketchInstance.canvas);
     } else if (window.defaultCanvas0) {
-      canvasHost.appendChild(window.defaultCanvas0)
+      canvasHost.appendChild(window.defaultCanvas0);
     }
-  })
+  });
 }
 
 try {
-  boot()
+  boot();
 } catch (error) {
-  showError(error)
+  showError(error);
 }

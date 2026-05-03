@@ -1,82 +1,82 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import CodeMirror from '@uiw/react-codemirror'
-import { javascript } from '@codemirror/lang-javascript'
-import { injectPreviewBridge } from './preview-bridge'
-import ParentWindowAdapter from './preview-parent-adapter'
-import './App.css'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import CodeMirror from '@uiw/react-codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { injectPreviewBridge } from './preview-bridge';
+import ParentWindowAdapter from './preview-parent-adapter';
+import './App.css';
 import {
   SOURCE_INITIAL,
   INTERNAL_CALLBACK_INITIAL,
   SHADER_INITIAL,
-} from './initial-code'
-import type { ShaderCapture } from './preview-bridge'
+} from './initial-code';
+import type { ShaderCapture } from './preview-bridge';
 
-const PREVIEW_DEBOUNCE_MS = 300
+const PREVIEW_DEBOUNCE_MS = 300;
 
 function App() {
-  const [sourceCode, setSourceCode] = useState(SOURCE_INITIAL)
-  const [internalCallback, setInternalCallback] = useState(INTERNAL_CALLBACK_INITIAL)
-  const [shaderCode, setShaderCode] = useState(SHADER_INITIAL)
-  const [captures, setCaptures] = useState<ShaderCapture[]>([])
-  const iframeRef = useRef<HTMLIFrameElement | null>(null)
-  const debouncedSourceCode = useDebouncedValue(sourceCode, PREVIEW_DEBOUNCE_MS)
+  const [sourceCode, setSourceCode] = useState(SOURCE_INITIAL);
+  const [internalCallback, setInternalCallback] = useState(INTERNAL_CALLBACK_INITIAL);
+  const [shaderCode, setShaderCode] = useState(SHADER_INITIAL);
+  const [captures, setCaptures] = useState<ShaderCapture[]>([]);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const debouncedSourceCode = useDebouncedValue(sourceCode, PREVIEW_DEBOUNCE_MS);
 
   const previewSrcDoc = useMemo(
     () => buildPreviewSrcDoc(debouncedSourceCode),
     [debouncedSourceCode]
-  )
+  );
 
   useEffect(() => {
-    const iframe = iframeRef.current
-    if (!iframe) return
+    const iframe = iframeRef.current;
+    if (!iframe) return;
 
-    let cancelled = false
+    let cancelled = false;
     const connect = async () => {
-      if (!iframe.contentWindow) return
+      if (!iframe.contentWindow) return;
 
       try {
-        const bridge = injectPreviewBridge(new ParentWindowAdapter(iframe.contentWindow))
+        const bridge = injectPreviewBridge(new ParentWindowAdapter(iframe.contentWindow));
         await bridge.onState((state) => {
-          if (cancelled) return
+          if (cancelled) return;
           if (Array.isArray(state.captures)) {
-            setCaptures(state.captures)
+            setCaptures(state.captures);
           }
-        })
+        });
 
-        const initialState = await bridge.getState()
+        const initialState = await bridge.getState();
         if (!cancelled) {
           if (Array.isArray(initialState.captures)) {
-            setCaptures(initialState.captures)
+            setCaptures(initialState.captures);
           }
         }
       } catch (error) {
-        console.error('Failed to connect preview bridge', error)
+        console.error('Failed to connect preview bridge', error);
       }
-    }
+    };
 
     const handleLoad = () => {
-      void connect()
-    }
+      void connect();
+    };
 
-    iframe.addEventListener('load', handleLoad)
-    void connect()
+    iframe.addEventListener('load', handleLoad);
+    void connect();
 
     return () => {
-      cancelled = true
-      iframe.removeEventListener('load', handleLoad)
-    }
-  }, [previewSrcDoc])
+      cancelled = true;
+      iframe.removeEventListener('load', handleLoad);
+    };
+  }, [previewSrcDoc]);
 
   useEffect(() => {
     if (captures.length === 0) {
-      setInternalCallback(INTERNAL_CALLBACK_INITIAL)
-      setShaderCode(SHADER_INITIAL)
-      return
+      setInternalCallback(INTERNAL_CALLBACK_INITIAL);
+      setShaderCode(SHADER_INITIAL);
+      return;
     }
 
-    setInternalCallback(joinCaptureSections(captures, 'callbackBody'))
-    setShaderCode(joinCaptureSections(captures, 'shaderSource'))
-  }, [captures])
+    setInternalCallback(joinCaptureSections(captures, 'callbackBody'));
+    setShaderCode(joinCaptureSections(captures, 'shaderSource'));
+  }, [captures]);
 
   return (
     <main className="h-screen overflow-hidden px-4 py-5 bg-white text-black sm:px-5 lg:px-7">
@@ -109,23 +109,23 @@ function App() {
         />
       </section>
     </main>
-  )
+  );
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
-  const [debouncedValue, setDebouncedValue] = useState(value)
+  const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setDebouncedValue(value)
-    }, delayMs)
+      setDebouncedValue(value);
+    }, delayMs);
 
     return () => {
-      window.clearTimeout(timeoutId)
-    }
-  }, [delayMs, value])
+      window.clearTimeout(timeoutId);
+    };
+  }, [delayMs, value]);
 
-  return debouncedValue
+  return debouncedValue;
 }
 
 function joinCaptureSections(
@@ -134,22 +134,22 @@ function joinCaptureSections(
 ) {
   return captures
     .map((capture) => {
-      const content = capture[field]?.trim()
+      const content = capture[field]?.trim();
       if (!content) {
-        return `// ${capture.kind}: ${capture.name}\n// No output captured yet.`
+        return `// ${capture.kind}: ${capture.name}\n// No output captured yet.`;
       }
 
       return [
         `// ${capture.kind}: ${capture.name}`,
         '// -----------------------------------------------------------------------------',
         content,
-      ].join('\n')
+      ].join('\n');
     })
-    .join('\n\n// =============================================================================\n\n')
+    .join('\n\n// =============================================================================\n\n');
 }
 
 function buildPreviewSrcDoc(sourceCode: string) {
-  const escapedSource = sourceCode.replaceAll('</script>', '<\\/script>')
+  const escapedSource = sourceCode.replaceAll('</script>', '<\\/script>');
 
   return `<!doctype html>
 <html lang="en">
@@ -215,7 +215,7 @@ function buildPreviewSrcDoc(sourceCode: string) {
     </script>
     <script type="module" src="/src/preview-frame-runtime.ts"></script>
   </body>
-</html>`
+</html>`;
 }
 
 type EditorPanelProps = {
@@ -255,7 +255,7 @@ function EditorPanel({
         />
       </div>
     </article>
-  )
+  );
 }
 
 type PreviewPanelProps = {
@@ -279,7 +279,7 @@ function PreviewPanel({ iframeRef, srcDoc }: PreviewPanelProps) {
         />
       </div>
     </article>
-  )
+  );
 }
 
-export default App
+export default App;
