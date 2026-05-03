@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
+import { injectPreviewBridge } from './preview-bridge'
+import ParentWindowAdapter from './preview-parent-adapter'
 import './App.css'
 import {
   SOURCE_INITIAL,
@@ -12,8 +14,56 @@ function App() {
   const [sourceCode, setSourceCode] = useState(SOURCE_INITIAL)
   const [internalCallback, setInternalCallback] = useState(INTERNAL_CALLBACK_INITIAL)
   const [shaderCode, setShaderCode] = useState(SHADER_INITIAL)
+  const iframeRef = useRef<HTMLIFrameElement | null>(null)
 
   const previewSrcDoc = useMemo(() => buildPreviewSrcDoc(sourceCode), [sourceCode])
+
+  useEffect(() => {
+    const iframe = iframeRef.current
+    if (!iframe) return
+
+    let cancelled = false
+    const connect = async () => {
+      if (!iframe.contentWindow) return
+
+      try {
+        const bridge = injectPreviewBridge(new ParentWindowAdapter(iframe.contentWindow))
+        await bridge.onState((state) => {
+          if (cancelled) return
+          if (typeof state.internalCallback === 'string' && state.internalCallback.length > 0) {
+            setInternalCallback(state.internalCallback)
+          }
+          if (typeof state.shaderSource === 'string' && state.shaderSource.length > 0) {
+            setShaderCode(state.shaderSource)
+          }
+        })
+
+        const initialState = await bridge.getState()
+        if (!cancelled) {
+          if (typeof initialState.internalCallback === 'string' && initialState.internalCallback.length > 0) {
+            setInternalCallback(initialState.internalCallback)
+          }
+          if (typeof initialState.shaderSource === 'string' && initialState.shaderSource.length > 0) {
+            setShaderCode(initialState.shaderSource)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to connect preview bridge', error)
+      }
+    }
+
+    const handleLoad = () => {
+      void connect()
+    }
+
+    iframe.addEventListener('load', handleLoad)
+    void connect()
+
+    return () => {
+      cancelled = true
+      iframe.removeEventListener('load', handleLoad)
+    }
+  }, [previewSrcDoc])
 
   return (
     <main className="h-screen overflow-hidden px-4 py-5 bg-white text-black sm:px-5 lg:px-7">
@@ -31,16 +81,18 @@ function App() {
           value={sourceCode}
           onChange={setSourceCode}
         />
-        <PreviewPanel srcDoc={previewSrcDoc} />
+        <PreviewPanel iframeRef={iframeRef} srcDoc={previewSrcDoc} />
         <EditorPanel
           title="Internal Strands Callback"
           value={internalCallback}
           onChange={setInternalCallback}
+          readOnly
         />
         <EditorPanel
           title="Shader"
           value={shaderCode}
           onChange={setShaderCode}
+          readOnly
         />
       </section>
     </main>
@@ -110,43 +162,9 @@ function buildPreviewSrcDoc(sourceCode: string) {
     <script src="/p5.js"></script>
     <script src="/p5.webgpu.js"></script>
     <script>
-      const errorNode = document.getElementById('error');
-
-      function showError(error) {
-        errorNode.style.display = 'block';
-        errorNode.innerHTML = '<pre>' + String(error && error.stack ? error.stack : error) + '</pre>';
-      }
-
-      window.addEventListener('error', (event) => {
-        showError(event.error || event.message);
-      });
-
-      window.addEventListener('unhandledrejection', (event) => {
-        showError(event.reason || 'Unhandled promise rejection');
-      });
+      window.__STRANDS_SOURCE__ = ${JSON.stringify(escapedSource)};
     </script>
-    <script>
-      ${escapedSource}
-    </script>
-    <script>
-      const hasGlobalSketch =
-        typeof window.setup === 'function' ||
-        typeof window.draw === 'function' ||
-        typeof window.preload === 'function';
-
-      if (hasGlobalSketch && window.p5) {
-        const sketchInstance = new window.p5();
-
-        requestAnimationFrame(() => {
-          const host = document.getElementById('canvas-host');
-          if (sketchInstance && sketchInstance.canvas) {
-            host.appendChild(sketchInstance.canvas);
-          } else if (window.defaultCanvas0) {
-            host.appendChild(window.defaultCanvas0);
-          }
-        });
-      }
-    </script>
+    <script type="module" src="/src/preview-frame-runtime.ts"></script>
   </body>
 </html>`
 }
@@ -155,12 +173,14 @@ type EditorPanelProps = {
   title: string
   value: string
   onChange: (value: string) => void
+  readOnly?: boolean
 }
 
 function EditorPanel({
   title,
   value,
   onChange,
+  readOnly = false,
 }: EditorPanelProps) {
   return (
     <article className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -181,6 +201,7 @@ function EditorPanel({
             foldGutter: false,
             highlightActiveLine: false,
           }}
+          editable={!readOnly}
           theme="none"
         />
       </div>
@@ -189,10 +210,11 @@ function EditorPanel({
 }
 
 type PreviewPanelProps = {
+  iframeRef: RefObject<HTMLIFrameElement | null>
   srcDoc: string
 }
 
-function PreviewPanel({ srcDoc }: PreviewPanelProps) {
+function PreviewPanel({ iframeRef, srcDoc }: PreviewPanelProps) {
   return (
     <article className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <header className="px-4 py-4">
@@ -200,9 +222,10 @@ function PreviewPanel({ srcDoc }: PreviewPanelProps) {
       </header>
       <div className="min-h-0 flex-1 overflow-auto rounded-[4px] border border-black/10">
         <iframe
+          ref={iframeRef}
           title="Sandboxed p5 preview"
           className="h-full w-full border-0 bg-white"
-          sandbox="allow-scripts"
+          sandbox="allow-scripts allow-same-origin"
           srcDoc={srcDoc}
         />
       </div>
