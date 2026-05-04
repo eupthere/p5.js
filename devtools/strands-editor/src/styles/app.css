@@ -52,12 +52,12 @@
 
 @keyframes cm-transient-highlight-fade {
   0% {
-    background-color: rgba(237, 34, 93, 0.35);
-    box-shadow: inset 0 0 0 1px rgba(237, 34, 93, 0.28);
+    background-color: rgba(34, 197, 94, 0.32);
+    box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.26);
   }
 
   100% {
-    background-color: rgba(237, 34, 93, 0);
-    box-shadow: inset 0 0 0 1px rgba(237, 34, 93, 0);
+    background-color: rgba(34, 197, 94, 0);
+    box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0);
   }
 }
