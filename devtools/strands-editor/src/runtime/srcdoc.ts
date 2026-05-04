@@ -1,4 +1,4 @@
-import frameRuntimeUrl from './frameRuntime.ts?url';
+import frameRuntimeUrl from './frameRuntime.entry.js?url&no-inline';
 
 export function buildPreviewSrcDoc(sourceCode: string) {
   const escapedSource = sourceCode.replaceAll('</script>', '<\\/script>');
