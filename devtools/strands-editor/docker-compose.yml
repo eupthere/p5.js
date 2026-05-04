@@ -1,0 +1,7 @@
+services:
+  strands-editor:
+    build:
+      context: ../..
+      dockerfile: devtools/strands-editor/Dockerfile
+    ports:
+      - "80:8080"
