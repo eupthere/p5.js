@@ -22,6 +22,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { findChangedRanges } from '../utils/findChangedRanges';
 
 const PREVIEW_DEBOUNCE_MS = 300;
+const PREVIEW_LOADING_TOAST_MIN_MS = 1000;
 const PANEL_IDS = ['source', 'preview', 'callback', 'shader'] as const;
 type PanelId = (typeof PANEL_IDS)[number];
 const SOURCE_STORAGE_KEY = 'strands-editor:source-code';
@@ -61,12 +62,16 @@ function StrandsEditorPage() {
     EditorHighlightRange[]
   >([]);
   const [captures, setCaptures] = useState<ShaderCapture[]>([]);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [showPreviewLoadingToast, setShowPreviewLoadingToast] = useState(false);
   const [isPreviewReady, setIsPreviewReady] = useState(false);
   const [visiblePanels, setVisiblePanels] = useState<Record<PanelId, boolean>>(
     () => loadStoredVisiblePanels()
   );
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const isBridgeConnectedRef = useRef(false);
+  const loadingToastShownAtRef = useRef<number | null>(null);
+  const hideLoadingToastTimeoutRef = useRef<number | null>(null);
   const debouncedSourceCode = useDebouncedValue(sourceCode, PREVIEW_DEBOUNCE_MS);
   const previewFrameSrc = '/frame.html';
 
@@ -79,10 +84,16 @@ function StrandsEditorPage() {
     let statePollIntervalId: number | null = null;
     isBridgeConnectedRef.current = false;
 
-    const applyState = (state: { captures?: ShaderCapture[] }) => {
+    const applyState = (state: {
+      captures?: ShaderCapture[];
+      isLoading?: boolean;
+    }) => {
       if (cancelled) return;
       if (Array.isArray(state.captures)) {
         setCaptures(state.captures);
+      }
+      if (typeof state.isLoading === 'boolean') {
+        setIsPreviewLoading(state.isLoading);
       }
     };
 
@@ -171,6 +182,13 @@ function StrandsEditorPage() {
       cancelled = true;
       isBridgeConnectedRef.current = false;
       setIsPreviewReady(false);
+      setIsPreviewLoading(false);
+      setShowPreviewLoadingToast(false);
+      loadingToastShownAtRef.current = null;
+      if (hideLoadingToastTimeoutRef.current !== null) {
+        window.clearTimeout(hideLoadingToastTimeoutRef.current);
+        hideLoadingToastTimeoutRef.current = null;
+      }
       if (statePollIntervalId !== null) {
         window.clearInterval(statePollIntervalId);
       }
@@ -178,6 +196,47 @@ function StrandsEditorPage() {
       iframe.removeEventListener('load', handleLoad);
     };
   }, []);
+
+  useEffect(() => {
+    if (hideLoadingToastTimeoutRef.current !== null) {
+      window.clearTimeout(hideLoadingToastTimeoutRef.current);
+      hideLoadingToastTimeoutRef.current = null;
+    }
+
+    if (isPreviewLoading) {
+      loadingToastShownAtRef.current = Date.now();
+      setShowPreviewLoadingToast(true);
+      return;
+    }
+
+    const shownAt = loadingToastShownAtRef.current;
+    if (shownAt === null) {
+      setShowPreviewLoadingToast(false);
+      return;
+    }
+
+    const elapsed = Date.now() - shownAt;
+    const remaining = Math.max(0, PREVIEW_LOADING_TOAST_MIN_MS - elapsed);
+
+    if (remaining === 0) {
+      setShowPreviewLoadingToast(false);
+      loadingToastShownAtRef.current = null;
+      return;
+    }
+
+    hideLoadingToastTimeoutRef.current = window.setTimeout(() => {
+      setShowPreviewLoadingToast(false);
+      loadingToastShownAtRef.current = null;
+      hideLoadingToastTimeoutRef.current = null;
+    }, remaining);
+
+    return () => {
+      if (hideLoadingToastTimeoutRef.current !== null) {
+        window.clearTimeout(hideLoadingToastTimeoutRef.current);
+        hideLoadingToastTimeoutRef.current = null;
+      }
+    };
+  }, [isPreviewLoading]);
 
   useEffect(() => {
     if (!isPreviewReady) return;
@@ -250,6 +309,11 @@ function StrandsEditorPage() {
 
   return (
     <main className="flex h-screen min-h-0 flex-col overflow-hidden bg-white px-4 py-5 text-black sm:px-5 lg:px-7">
+      {showPreviewLoadingToast ? (
+        <div className="preview-loading-toast" role="status" aria-live="polite">
+          Loading preview assets…
+        </div>
+      ) : null}
       <header className="mx-auto mb-6 flex w-full max-w-[1800px] flex-none flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="m-0 text-[clamp(1rem,4vw,2rem)] leading-[0.95] font-medium tracking-[-0.03em] text-[#ED225D]">

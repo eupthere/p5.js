@@ -25,6 +25,7 @@ export type ShaderCapture = {
 export type PreviewState = {
   captures: ShaderCapture[];
   error: string;
+  isLoading: boolean;
 };
 
 export type ShaderBuilderMethodName =

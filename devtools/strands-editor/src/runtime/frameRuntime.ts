@@ -45,6 +45,7 @@ function applyRunnerState(error: string, captures: ShaderCapture[]) {
   service.update({
     error,
     captures,
+    isLoading: false,
   });
 
   if (error.trim()) {
@@ -55,7 +56,12 @@ function applyRunnerState(error: string, captures: ShaderCapture[]) {
 }
 
 function resetRunnerState() {
-  applyRunnerState('', []);
+  service.update({
+    captures: [],
+    error: '',
+    isLoading: true,
+  });
+  hideShellError();
 }
 
 function sendSourceToRunner() {
@@ -100,6 +106,7 @@ window.addEventListener('message', (event) => {
   if (event.source !== currentRunnerIframe?.contentWindow) return;
 
   if (isRunnerReadyMessage(event.data)) {
+    service.update({ isLoading: false });
     sendSourceToRunner();
     return;
   }

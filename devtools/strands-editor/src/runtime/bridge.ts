@@ -5,6 +5,7 @@ export class PreviewBridgeService {
   private state: PreviewState = {
     captures: [],
     error: '',
+    isLoading: false,
   };
 
   private listeners = new Set<(state: PreviewState) => void>();

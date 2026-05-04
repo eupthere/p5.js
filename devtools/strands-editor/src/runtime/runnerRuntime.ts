@@ -40,6 +40,7 @@ const capturesById = new Map<string, ShaderCapture>();
 let previewState: PreviewState = {
   captures: [],
   error: '',
+  isLoading: false,
 };
 
 function publishState() {
@@ -233,6 +234,7 @@ function resetPreviewState() {
   previewState = {
     captures: [],
     error: '',
+    isLoading: false,
   };
 
   if (errorNode) {

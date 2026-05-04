@@ -32,6 +32,24 @@
   color-scheme: light;
 }
 
+.preview-loading-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  z-index: 50;
+  transform: translateX(-50%);
+  padding: 10px 14px;
+  border: 1px solid rgba(32, 24, 20, 0.08);
+  border-radius: 999px;
+  background: rgba(32, 24, 20, 0.92);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  box-shadow: 0 10px 25px rgba(32, 24, 20, 0.18);
+  backdrop-filter: blur(8px);
+}
+
 @keyframes cm-transient-highlight-fade {
   0% {
     background-color: rgba(237, 34, 93, 0.35);
