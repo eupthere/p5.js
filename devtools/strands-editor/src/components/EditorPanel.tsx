@@ -9,6 +9,8 @@ export type EditorHighlightRange = {
   to: number;
 };
 
+const HIGHLIGHT_DURATION_MS = 5000;
+
 const setHighlightsEffect = StateEffect.define<EditorHighlightRange[]>();
 const clearHighlightsEffect = StateEffect.define<void>();
 
@@ -45,7 +47,7 @@ const transientHighlightField = StateField.define({
 
 const transientHighlightTheme = EditorView.theme({
   '.cm-transient-highlight': {
-    animation: 'cm-transient-highlight-fade 1s ease-out forwards',
+    animation: `cm-transient-highlight-fade ${HIGHLIGHT_DURATION_MS}ms ease-out forwards`,
     backgroundColor: 'rgba(237, 34, 93, 0.35)',
     borderRadius: '2px',
   },
@@ -109,7 +111,7 @@ export function EditorPanel({
         effects: [clearHighlightsEffect.of(undefined)],
       });
       clearHighlightTimeoutRef.current = null;
-    }, 1000);
+    }, HIGHLIGHT_DURATION_MS);
 
     return () => {
       if (clearHighlightTimeoutRef.current !== null) {
