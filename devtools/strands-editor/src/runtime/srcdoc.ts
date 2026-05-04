@@ -1,3 +1,5 @@
+import frameRuntimeUrl from './frameRuntime.ts?url';
+
 export function buildPreviewSrcDoc(sourceCode: string) {
   const escapedSource = sourceCode.replaceAll('</script>', '<\\/script>');
 
@@ -63,7 +65,7 @@ export function buildPreviewSrcDoc(sourceCode: string) {
     <script>
       window.__STRANDS_SOURCE__ = ${JSON.stringify(escapedSource)};
     </script>
-    <script type="module" src="/src/runtime/frameRuntime.ts"></script>
+    <script type="module" src="${frameRuntimeUrl}"></script>
   </body>
 </html>`;
 }
