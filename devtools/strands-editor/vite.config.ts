@@ -5,6 +5,14 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   publicDir: path.resolve(__dirname, '../../lib'),
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        frame: path.resolve(__dirname, 'frame.html'),
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),

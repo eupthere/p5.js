@@ -1,9 +1,4 @@
-import frameRuntimeUrl from './frameRuntime.entry.js?url&no-inline';
-
-export function buildPreviewSrcDoc(sourceCode: string) {
-  const escapedSource = sourceCode.replaceAll('</script>', '<\\/script>');
-
-  return `<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -62,10 +57,6 @@ export function buildPreviewSrcDoc(sourceCode: string) {
     </main>
     <script src="/p5.js"></script>
     <script src="/p5.webgpu.js"></script>
-    <script>
-      window.__STRANDS_SOURCE__ = ${JSON.stringify(escapedSource)};
-    </script>
-    <script type="module" src="${frameRuntimeUrl}"></script>
+    <script type="module" src="/src/runtime/frameRuntime.ts"></script>
   </body>
-</html>`;
-}
+</html>

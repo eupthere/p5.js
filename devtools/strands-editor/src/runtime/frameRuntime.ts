@@ -4,6 +4,9 @@ import {
 } from './bridge';
 import PreviewFrameAdapter from './frameAdapter';
 import {
+  isPreviewSourceMessage,
+} from './messages';
+import {
   SHADER_CAPTURE_KINDS,
   getShaderBuilderMethodName,
   type ShaderBuilderMethodName,
@@ -14,7 +17,6 @@ import { formatSourceCode } from '../utils/formatSource';
 
 declare global {
   interface Window {
-    __STRANDS_SOURCE__?: string
     setup?: () => void | Promise<void>
     draw?: () => void | Promise<void>
     preload?: () => void | Promise<void>
@@ -31,10 +33,13 @@ providePreviewBridge(new PreviewFrameAdapter());
 
 const errorNode = document.getElementById('error');
 const canvasHost = document.getElementById('canvas-host');
-const sourceCode = window.__STRANDS_SOURCE__ ?? '';
 let captureSequence = 0;
 let activeCaptureId: string | null = null;
 const capturesById = new Map<string, ShaderCapture>();
+let currentSketchInstance:
+  | (InstanceType<NonNullable<typeof window.p5>> & { remove?: () => void })
+  | null = null;
+let hasPatchedShaderBuilders = false;
 
 function showError(error: unknown) {
   const message = String(error && typeof error === 'object' && 'stack' in error ? error.stack : error);
@@ -162,7 +167,7 @@ function captureShaderSource(captureId: string, shader: any) {
 
 function patchShaderBuilders() {
   const p5Ctor = window.p5;
-  if (!p5Ctor) return;
+  if (!p5Ctor || hasPatchedShaderBuilders) return;
 
   for (const kind of SHADER_CAPTURE_KINDS) {
     const methodName: ShaderBuilderMethodName = getShaderBuilderMethodName(kind);
@@ -179,6 +184,8 @@ function patchShaderBuilders() {
       return shader;
     };
   }
+
+  hasPatchedShaderBuilders = true;
 }
 
 function executeSketchAsGlobalScript(source: string) {
@@ -188,7 +195,40 @@ function executeSketchAsGlobalScript(source: string) {
   script.remove();
 }
 
-function boot() {
+function resetPreviewState() {
+  capturesById.clear();
+  captureSequence = 0;
+  activeCaptureId = null;
+  service.update({
+    captures: [],
+    error: '',
+  });
+
+  if (errorNode) {
+    errorNode.style.display = 'none';
+    errorNode.innerHTML = '';
+  }
+}
+
+function teardownSketch() {
+  if (currentSketchInstance?.remove) {
+    currentSketchInstance.remove();
+  }
+  currentSketchInstance = null;
+
+  if (canvasHost) {
+    canvasHost.innerHTML = '';
+  }
+
+  delete window.setup;
+  delete window.draw;
+  delete window.preload;
+  delete window.defaultCanvas0;
+}
+
+function boot(sourceCode: string) {
+  resetPreviewState();
+  teardownSketch();
   patchShaderBuilders();
   executeSketchAsGlobalScript(sourceCode);
 
@@ -202,6 +242,7 @@ function boot() {
   }
 
   const sketchInstance = new window.p5();
+  currentSketchInstance = sketchInstance;
 
   requestAnimationFrame(() => {
     if (!canvasHost) return;
@@ -211,12 +252,6 @@ function boot() {
       canvasHost.appendChild(window.defaultCanvas0);
     }
   });
-}
-
-try {
-  boot();
-} catch (error) {
-  showError(error);
 }
 
 function stripSharedIndent(source: string) {
@@ -244,3 +279,15 @@ function stripSharedIndent(source: string) {
     })
     .join('\n');
 }
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window.parent) return;
+  if (event.origin !== window.location.origin) return;
+  if (!isPreviewSourceMessage(event.data)) return;
+
+  try {
+    boot(event.data.source);
+  } catch (error) {
+    showError(error);
+  }
+});

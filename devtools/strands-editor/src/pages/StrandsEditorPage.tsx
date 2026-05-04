@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { injectPreviewBridge } from '../runtime/bridge';
 import ParentWindowAdapter from '../runtime/parentAdapter';
+import { PREVIEW_SOURCE_MESSAGE_TYPE } from '../runtime/messages';
 import '../styles/app.css';
 import {
   EditorPanel,
@@ -13,7 +14,6 @@ import {
   SHADER_INITIAL,
 } from '../data/initialCode';
 import { PreviewPanel } from '../components/PreviewPanel';
-import { buildPreviewSrcDoc } from '../runtime/srcdoc';
 import type { ShaderCapture } from '../runtime/types';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { findChangedRanges } from '../utils/findChangedRanges';
@@ -63,11 +63,11 @@ function StrandsEditorPage() {
   );
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const debouncedSourceCode = useDebouncedValue(sourceCode, PREVIEW_DEBOUNCE_MS);
-
-  const previewSrcDoc = useMemo(
-    () => buildPreviewSrcDoc(debouncedSourceCode),
+  const previewFrameKey = useMemo(
+    () => `frame:${debouncedSourceCode}`,
     [debouncedSourceCode]
   );
+  const previewFrameSrc = '/frame.html';
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -98,17 +98,25 @@ function StrandsEditorPage() {
     };
 
     const handleLoad = () => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.postMessage(
+          {
+            type: PREVIEW_SOURCE_MESSAGE_TYPE,
+            source: debouncedSourceCode,
+          },
+          window.location.origin
+        );
+      }
       connect();
     };
 
     iframe.addEventListener('load', handleLoad);
-    connect();
 
     return () => {
       cancelled = true;
       iframe.removeEventListener('load', handleLoad);
     };
-  }, [previewSrcDoc]);
+  }, [debouncedSourceCode, previewFrameKey]);
 
   useEffect(() => {
     if (captures.length === 0) {
@@ -204,9 +212,10 @@ function StrandsEditorPage() {
           onChange={setSourceCode}
         />
         <PreviewPanel
+          key={previewFrameKey}
           isHidden={!visiblePanels.preview}
           iframeRef={iframeRef}
-          srcDoc={previewSrcDoc}
+          src={previewFrameSrc}
         />
         <EditorPanel
           isHidden={!visiblePanels.callback}
