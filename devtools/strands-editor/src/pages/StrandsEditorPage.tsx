@@ -311,7 +311,7 @@ function StrandsEditorPage() {
     <main className="flex h-screen min-h-0 flex-col overflow-hidden bg-white px-4 py-5 text-black sm:px-5 lg:px-7">
       {showPreviewLoadingToast ? (
         <div className="preview-loading-toast" role="status" aria-live="polite">
-          Loading preview assets…
+          Loading…
         </div>
       ) : null}
       <header className="mx-auto mb-6 flex w-full max-w-[1800px] flex-none flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
