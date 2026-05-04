@@ -10,6 +10,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         frame: path.resolve(__dirname, 'frame.html'),
+        runner: path.resolve(__dirname, 'runner.html'),
       },
     },
   },

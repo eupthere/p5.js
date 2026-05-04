@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { injectPreviewBridge } from '../runtime/bridge';
 import ParentWindowAdapter from '../runtime/parentAdapter';
-import { PREVIEW_SOURCE_MESSAGE_TYPE } from '../runtime/messages';
+import {
+  PREVIEW_SOURCE_MESSAGE_TYPE,
+  isPreviewReadyMessage,
+} from '../runtime/messages';
 import '../styles/app.css';
 import {
   EditorPanel,
@@ -58,15 +61,13 @@ function StrandsEditorPage() {
     EditorHighlightRange[]
   >([]);
   const [captures, setCaptures] = useState<ShaderCapture[]>([]);
+  const [isPreviewReady, setIsPreviewReady] = useState(false);
   const [visiblePanels, setVisiblePanels] = useState<Record<PanelId, boolean>>(
     () => loadStoredVisiblePanels()
   );
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const isBridgeConnectedRef = useRef(false);
   const debouncedSourceCode = useDebouncedValue(sourceCode, PREVIEW_DEBOUNCE_MS);
-  const previewFrameKey = useMemo(
-    () => `frame:${debouncedSourceCode}`,
-    [debouncedSourceCode]
-  );
   const previewFrameSrc = '/frame.html';
 
   useEffect(() => {
@@ -74,49 +75,122 @@ function StrandsEditorPage() {
     if (!iframe) return;
 
     let cancelled = false;
+    let connectTask: Promise<void> | null = null;
+    let statePollIntervalId: number | null = null;
+    isBridgeConnectedRef.current = false;
+
+    const applyState = (state: { captures?: ShaderCapture[] }) => {
+      if (cancelled) return;
+      if (Array.isArray(state.captures)) {
+        setCaptures(state.captures);
+      }
+    };
+
     const connect = async () => {
-      if (!iframe.contentWindow) return;
+      if (!iframe.contentWindow) return false;
+      if (isBridgeConnectedRef.current) return true;
 
       try {
         const bridge = injectPreviewBridge(new ParentWindowAdapter(iframe.contentWindow));
         await bridge.onState((state) => {
-          if (cancelled) return;
-          if (Array.isArray(state.captures)) {
-            setCaptures(state.captures);
-          }
+          applyState(state);
         });
 
-        const initialState = await bridge.getState();
-        if (!cancelled) {
-          if (Array.isArray(initialState.captures)) {
-            setCaptures(initialState.captures);
-          }
+        const syncState = async () => {
+          const state = await bridge.getState();
+          applyState(state);
+        };
+
+        await syncState();
+
+        if (statePollIntervalId === null) {
+          statePollIntervalId = window.setInterval(() => {
+            syncState().catch(() => {});
+          }, 250);
         }
+
+        isBridgeConnectedRef.current = true;
+        return true;
       } catch (error) {
-        console.error('Failed to connect preview bridge', error);
+        return false;
       }
     };
 
-    const handleLoad = () => {
-      if (iframe.contentWindow) {
-        iframe.contentWindow.postMessage(
-          {
-            type: PREVIEW_SOURCE_MESSAGE_TYPE,
-            source: debouncedSourceCode,
-          },
-          window.location.origin
+    const connectWithRetry = async () => {
+      if (connectTask) {
+        await connectTask;
+        return;
+      }
+
+      connectTask = (async () => {
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        if (cancelled) return;
+
+        const didConnect = await connect();
+        if (didConnect) {
+          return;
+        }
+
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, 250);
+        });
+      }
+
+      if (!cancelled) {
+        console.error(
+          'Failed to connect preview bridge',
+          new Error('Provider unavailable after retries')
         );
       }
-      connect();
+      })();
+
+      try {
+        await connectTask;
+      } finally {
+        connectTask = null;
+      }
+    };
+
+    const handleFrameReady = (event: MessageEvent) => {
+      if (event.source !== iframe.contentWindow) return;
+      if (event.origin !== window.location.origin) return;
+      if (!isPreviewReadyMessage(event.data)) return;
+      setIsPreviewReady(true);
+      connectWithRetry();
+    };
+
+    window.addEventListener('message', handleFrameReady);
+
+    const handleLoad = () => {
+      connectWithRetry();
     };
 
     iframe.addEventListener('load', handleLoad);
 
     return () => {
       cancelled = true;
+      isBridgeConnectedRef.current = false;
+      setIsPreviewReady(false);
+      if (statePollIntervalId !== null) {
+        window.clearInterval(statePollIntervalId);
+      }
+      window.removeEventListener('message', handleFrameReady);
       iframe.removeEventListener('load', handleLoad);
     };
-  }, [debouncedSourceCode, previewFrameKey]);
+  }, []);
+
+  useEffect(() => {
+    if (!isPreviewReady) return;
+    if (!iframeRef.current?.contentWindow) return;
+
+    iframeRef.current.contentWindow.postMessage(
+      {
+        type: PREVIEW_SOURCE_MESSAGE_TYPE,
+        source: debouncedSourceCode,
+      },
+      window.location.origin
+    );
+  }, [debouncedSourceCode, isPreviewReady]);
 
   useEffect(() => {
     if (captures.length === 0) {
@@ -212,7 +286,6 @@ function StrandsEditorPage() {
           onChange={setSourceCode}
         />
         <PreviewPanel
-          key={previewFrameKey}
           isHidden={!visiblePanels.preview}
           iframeRef={iframeRef}
           src={previewFrameSrc}

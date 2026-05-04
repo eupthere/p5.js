@@ -6,7 +6,11 @@ type PreviewPanelProps = {
   src: string;
 };
 
-export function PreviewPanel({ isHidden = false, iframeRef, src }: PreviewPanelProps) {
+export function PreviewPanel({
+  isHidden = false,
+  iframeRef,
+  src,
+}: PreviewPanelProps) {
   return (
     <article className={`flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${isHidden ? 'hidden' : ''}`}>
       <header className="px-4 py-4">
