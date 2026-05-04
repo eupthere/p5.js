@@ -35,6 +35,7 @@ let currentSketchInstance:
   | null = null;
 let hasPatchedShaderBuilders = false;
 let lastBootedSource: string | null = null;
+let canvasObserver: MutationObserver | null = null;
 
 const capturesById = new Map<string, ShaderCapture>();
 let previewState: PreviewState = {
@@ -246,6 +247,9 @@ function resetPreviewState() {
 }
 
 function teardownSketch() {
+  canvasObserver?.disconnect();
+  canvasObserver = null;
+
   if (currentSketchInstance?.remove) {
     currentSketchInstance.remove();
   }
@@ -259,6 +263,40 @@ function teardownSketch() {
   delete window.draw;
   delete window.preload;
   delete window.defaultCanvas0;
+}
+
+function moveCanvasIntoHost() {
+  if (!canvasHost) return false;
+
+  const canvas =
+    currentSketchInstance?.canvas ??
+    window.defaultCanvas0 ??
+    document.querySelector<HTMLCanvasElement>('canvas');
+
+  if (!canvas) {
+    return false;
+  }
+
+  if (canvas.parentElement !== canvasHost) {
+    canvasHost.appendChild(canvas);
+  }
+
+  return true;
+}
+
+function observeCanvasInsertion() {
+  if (!canvasHost) return;
+
+  canvasObserver?.disconnect();
+  canvasObserver = new MutationObserver(() => {
+    moveCanvasIntoHost();
+  });
+  canvasObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+
+  moveCanvasIntoHost();
 }
 
 function boot(sourceCode: string) {
@@ -288,15 +326,7 @@ function boot(sourceCode: string) {
 
   const sketchInstance = new window.p5();
   currentSketchInstance = sketchInstance;
-
-  requestAnimationFrame(() => {
-    if (!canvasHost) return;
-    if (sketchInstance?.canvas) {
-      canvasHost.appendChild(sketchInstance.canvas);
-    } else if (window.defaultCanvas0) {
-      canvasHost.appendChild(window.defaultCanvas0);
-    }
-  });
+  observeCanvasInsertion();
 }
 
 function stripSharedIndent(source: string) {
